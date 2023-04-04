@@ -6,7 +6,7 @@ import cv2
 from PIL import Image
 import glob 
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # from models import *
 from models_x import *
@@ -20,10 +20,10 @@ parser.add_argument("--image_dir", type=str, default="demo_images", help="direct
 parser.add_argument("--image_name", type=str, default="a1629.jpg", help="name of image")
 parser.add_argument("--input_color_space", type=str, default="sRGB", help="input color space: sRGB or XYZ")
 parser.add_argument("--video", type=int, default=0, help="generate video or not")
-parser.add_argument("--model_dir", type=str, default="pretrained_models", help="directory of pretrained models")
+parser.add_argument("--model_dir", type=str, default="pretrained_models/sRGB", help="directory of pretrained models")
 parser.add_argument("--output_dir", type=str, default="demo_results", help="directory to save results")
 opt = parser.parse_args()
-opt.model_dir = opt.model_dir + '/' + opt.input_color_space
+# opt.model_dir = opt.model_dir + '/' + opt.input_color_space
 if '*' not in opt.image_name:
     opt.image_path = opt.image_dir + '/' + opt.input_color_space + '/' + opt.image_name
 else:
@@ -126,7 +126,7 @@ if not opt.video:
 
         # generate image
         # result = trilinear_(LUT, img)
-        _, result = trilinear_(LUT, img)
+        result = trilinear_(LUT, img)
 
         # save image
         output = result.squeeze().mul_(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
@@ -158,7 +158,8 @@ if not opt.video:
             # model run 
             LUT, pred = generate_LUT(img)
             preds.append(pred)
-            _, result = trilinear_(LUT, img)
+            result = trilinear_(LUT, img)
+            
             # save result
             output = result.squeeze().mul_(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy()
             img = np.array(Image.open(frame))

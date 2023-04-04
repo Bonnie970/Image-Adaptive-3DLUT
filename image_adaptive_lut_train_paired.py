@@ -92,28 +92,28 @@ optimizer_G = torch.optim.Adam(itertools.chain(classifier.parameters(), LUT0.par
 
 if opt.input_color_space == 'sRGB':
     dataloader = DataLoader(
-        ImageDataset_sRGB("../data/%s" % opt.dataset_name, mode = "train"),
+        ImageDataset_sRGB("./dataset/%s" % opt.dataset_name, mode = "train"),
         batch_size=opt.batch_size,
         shuffle=True,
         num_workers=opt.n_cpu,
     )
 
     psnr_dataloader = DataLoader(
-        ImageDataset_sRGB("../data/%s" % opt.dataset_name,  mode="test"),
+        ImageDataset_sRGB("./dataset/%s" % opt.dataset_name,  mode="test"),
         batch_size=1,
         shuffle=False,
         num_workers=1,
     )
 elif opt.input_color_space == 'XYZ':
     dataloader = DataLoader(
-        ImageDataset_XYZ("../data/%s" % opt.dataset_name, mode = "train"),
+        ImageDataset_XYZ("./dataset/%s" % opt.dataset_name, mode = "train"),
         batch_size=opt.batch_size,
         shuffle=True,
         num_workers=opt.n_cpu,
     )
 
     psnr_dataloader = DataLoader(
-        ImageDataset_XYZ("../data/%s" % opt.dataset_name,  mode="test"),
+        ImageDataset_XYZ("./dataset/%s" % opt.dataset_name,  mode="test"),
         batch_size=1,
         shuffle=False,
         num_workers=1,
@@ -146,8 +146,9 @@ def generator_eval(img):
    
     weights_norm = torch.mean(pred ** 2)
 
-    combine_A = img.new(img.size())
-    _, combine_A = trilinear_(LUT,img)
+    # combine_A = img.new(img.size())
+
+    combine_A = trilinear_(LUT,img)
 
     return combine_A, weights_norm
 

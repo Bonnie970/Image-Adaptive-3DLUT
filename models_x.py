@@ -6,7 +6,7 @@ from torch.autograd import Variable
 import torch
 import numpy as np
 import math
-import trilinear
+# import trilinear
 
 def weights_init_normal_classifier(m):
     classname = m.__class__.__name__
@@ -141,7 +141,7 @@ class Generator3DLUT_identity(nn.Module):
         self.TrilinearInterpolation = TrilinearInterpolation()
 
     def forward(self, x):
-        _, output = self.TrilinearInterpolation(self.LUT, x)
+        output = self.TrilinearInterpolation(self.LUT, x)
         #self.LUT, output = self.TrilinearInterpolation(self.LUT, x)
         return output
 
@@ -154,59 +154,59 @@ class Generator3DLUT_zero(nn.Module):
         self.TrilinearInterpolation = TrilinearInterpolation()
 
     def forward(self, x):
-        _, output = self.TrilinearInterpolation(self.LUT, x)
+        output = self.TrilinearInterpolation(self.LUT, x)
 
         return output
 
-class TrilinearInterpolationFunction(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, lut, x):
-        x = x.contiguous()
+# class TrilinearInterpolationFunction(torch.autograd.Function):
+#     @staticmethod
+#     def forward(ctx, lut, x):
+#         x = x.contiguous()
 
-        output = x.new(x.size())
-        dim = lut.size()[-1]
-        shift = dim ** 3
-        binsize = 1.000001 / (dim-1)
-        W = x.size(2)
-        H = x.size(3)
-        batch = x.size(0)
+#         output = x.new(x.size())
+#         dim = lut.size()[-1]
+#         shift = dim ** 3
+#         binsize = 1.000001 / (dim-1)
+#         W = x.size(2)
+#         H = x.size(3)
+#         batch = x.size(0)
         
-        assert 1 == trilinear.forward(lut, 
-                                      x, 
-                                      output,
-                                      dim, 
-                                      shift, 
-                                      binsize, 
-                                      W, 
-                                      H, 
-                                      batch)
+#         assert 1 == trilinear.forward(lut, 
+#                                       x, 
+#                                       output,
+#                                       dim, 
+#                                       shift, 
+#                                       binsize, 
+#                                       W, 
+#                                       H, 
+#                                       batch)
 
-        int_package = torch.IntTensor([dim, shift, W, H, batch])
-        float_package = torch.FloatTensor([binsize])
-        variables = [lut, x, int_package, float_package]
+#         int_package = torch.IntTensor([dim, shift, W, H, batch])
+#         float_package = torch.FloatTensor([binsize])
+#         variables = [lut, x, int_package, float_package]
         
-        ctx.save_for_backward(*variables)
+#         ctx.save_for_backward(*variables)
         
-        return lut, output
+#         return lut, output
     
-    @staticmethod
-    def backward(ctx, lut_grad, x_grad):
+#     @staticmethod
+#     def backward(ctx, lut_grad, x_grad):
         
-        lut, x, int_package, float_package = ctx.saved_variables
-        dim, shift, W, H, batch = int_package
-        dim, shift, W, H, batch = int(dim), int(shift), int(W), int(H), int(batch)
-        binsize = float(float_package[0])
+#         lut, x, int_package, float_package = ctx.saved_variables
+#         dim, shift, W, H, batch = int_package
+#         dim, shift, W, H, batch = int(dim), int(shift), int(W), int(H), int(batch)
+#         binsize = float(float_package[0])
             
-        assert 1 == trilinear.backward(x, 
-                                       x_grad, 
-                                       lut_grad,
-                                       dim, 
-                                       shift, 
-                                       binsize, 
-                                       W, 
-                                       H, 
-                                       batch)
-        return lut_grad, x_grad
+#         assert 1 == trilinear.backward(x, 
+#                                        x_grad, 
+#                                        lut_grad,
+#                                        dim, 
+#                                        shift, 
+#                                        binsize, 
+#                                        W, 
+#                                        H, 
+#                                        batch)
+#         return lut_grad, x_grad
 
 
 class TrilinearInterpolation(torch.nn.Module):
@@ -214,7 +214,22 @@ class TrilinearInterpolation(torch.nn.Module):
         super(TrilinearInterpolation, self).__init__()
 
     def forward(self, lut, x):
-        return TrilinearInterpolationFunction.apply(lut, x)
+        # return TrilinearInterpolationFunction.apply(lut, x)
+        x = (x - .5) * 2.
+
+        # grid_sample expects NxDxHxWx3 (1x1xHxWx3)
+        x = x.permute(0, 2, 3, 1)[:, None]
+
+        # add batch dim to LUT
+        lut = lut[None]
+
+        # grid sample
+        result = F.grid_sample(lut, x, mode='bilinear', padding_mode='border', align_corners=True)
+
+        # drop added dimensions and permute back
+        # shape = BCHW 
+        result = result[:, :, 0] #.permute(0, 2, 3, 1)
+        return result
 
 
 class TV_3D(nn.Module):
