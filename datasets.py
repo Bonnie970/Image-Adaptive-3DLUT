@@ -12,6 +12,67 @@ import torchvision.transforms.functional as TF
 import torchvision_x_functional as TF_x
 
 
+class ImageDataset_Hotstar(Dataset):
+    def __init__(self, im_txt, gt_txt, mode="train", loss_weight=-1):
+        self.mode = mode
+        self.ims = [x.strip() for x in open(im_txt,'r').readlines()]
+        self.gts = [x.strip() for x in open(gt_txt,'r').readlines()]
+        self.loss_weight = loss_weight
+        assert len(self.ims) == len(self.gts)
+
+    def __getitem__(self, index):
+
+        img_name = os.path.split(self.ims[index % len(self.ims)])[-1]
+        img_input = Image.open(self.ims[index % len(self.ims)])
+        img_exptC = Image.open(self.gts[index % len(self.gts)])
+        
+        mask = None
+        if self.loss_weight:
+            # mask must be save in /mask/ dir  
+            mask = Image.open(self.gts[index % len(self.gts)].replace('/gt/', '/mask/')) 
+
+        if self.mode == "train": 
+            ratio_H = np.random.uniform(0.6,1.0)
+            ratio_W = np.random.uniform(0.6,1.0)
+            W,H = img_input._size
+            crop_h = round(H*ratio_H)
+            crop_w = round(W*ratio_W)
+            i, j, h, w = transforms.RandomCrop.get_params(img_input, output_size=(crop_h, crop_w))
+            img_input = TF.crop(img_input, i, j, h, w)
+            img_exptC = TF.crop(img_exptC, i, j, h, w)
+            #img_input = TF.resized_crop(img_input, i, j, h, w, (320,320))
+            #img_exptC = TF.resized_crop(img_exptC, i, j, h, w, (320,320))
+            if self.loss_weight:
+                mask = TF.crop(mask, i, j, h, w)
+
+            if np.random.random() > 0.5:
+                img_input = TF.hflip(img_input)
+                img_exptC = TF.hflip(img_exptC)
+                if self.loss_weight:
+                    mask = TF.hflip(mask)
+
+            # WE DO NOT WANT TO CHANGE THE BRIGHTNESS OR SATURATION OF INPUT 
+            # a = np.random.uniform(0.8,1.2)
+            # img_input = TF.adjust_brightness(img_input,a)
+
+            # a = np.random.uniform(0.8,1.2)
+            # img_input = TF.adjust_saturation(img_input,a)
+
+        img_input = TF.to_tensor(img_input)
+        img_exptC = TF.to_tensor(img_exptC)
+        if self.loss_weight:
+            # mask [0,1] --> [1,weight]
+            mask = np.array(mask) / 255 * (self.loss_weight - 1) + 1
+            # normalize to mask 0-1 
+            # mask = mask / (self.loss_weight + 1)
+            mask = TF.to_tensor(mask)
+
+        return {"A_input": img_input, "A_exptC": img_exptC, "input_name": img_name, 'mask': mask}
+
+    def __len__(self):
+        return len(self.ims)
+
+
 class ImageDataset_sRGB(Dataset):
     def __init__(self, root, mode="train", unpaird_data="fiveK", combined=True):
         self.mode = mode
