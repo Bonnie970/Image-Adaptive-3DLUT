@@ -24,6 +24,10 @@ import torch
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from, 0 starts from scratch, >0 starts from saved checkpoints")
 parser.add_argument("--n_epochs", type=int, default=400, help="total number of epochs of training")
+parser.add_argument("--im_train", type=str, default=None, help="train input file list")
+parser.add_argument("--gt_train", type=str, default=None, help="train gt file list")
+parser.add_argument("--im_val", type=str, default=None, help="val input file list")
+parser.add_argument("--gt_val", type=str, default=None, help="val gt file list")
 parser.add_argument("--dataset_name", type=str, default="fiveK", help="name of the dataset")
 parser.add_argument("--input_color_space", type=str, default="sRGB", help="input color space: sRGB or XYZ")
 parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
@@ -35,6 +39,7 @@ parser.add_argument("--lambda_monotonicity", type=float, default=10.0, help="mon
 parser.add_argument("--n_cpu", type=int, default=1, help="number of cpu threads to use during batch generation")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between model checkpoints")
 parser.add_argument("--output_dir", type=str, default="LUTs/paired/fiveK_480p_3LUT_sm_1e-4_mn_10", help="path to save model")
+parser.add_argument("--loss_weight", type=float, default=-1, help="weather load mask to compute weighted loss")
 opt = parser.parse_args()
 
 opt.output_dir = opt.output_dir + '_' + opt.input_color_space
@@ -90,34 +95,50 @@ else:
 
 optimizer_G = torch.optim.Adam(itertools.chain(classifier.parameters(), LUT0.parameters(), LUT1.parameters(), LUT2.parameters()), lr=opt.lr, betas=(opt.b1, opt.b2)) #, LUT3.parameters(), LUT4.parameters()
 
-if opt.input_color_space == 'sRGB':
-    dataloader = DataLoader(
-        ImageDataset_sRGB("./dataset/%s" % opt.dataset_name, mode = "train"),
-        batch_size=opt.batch_size,
-        shuffle=True,
-        num_workers=opt.n_cpu,
-    )
 
-    psnr_dataloader = DataLoader(
-        ImageDataset_sRGB("./dataset/%s" % opt.dataset_name,  mode="test"),
-        batch_size=1,
-        shuffle=False,
-        num_workers=1,
-    )
-elif opt.input_color_space == 'XYZ':
+# DATASET 
+if opt.im_train is not None: 
     dataloader = DataLoader(
-        ImageDataset_XYZ("./dataset/%s" % opt.dataset_name, mode = "train"),
-        batch_size=opt.batch_size,
-        shuffle=True,
-        num_workers=opt.n_cpu,
-    )
-
+            ImageDataset_Hotstar(opt.im_train, opt.gt_train, mode = "train", loss_weight=opt.loss_weight),
+            batch_size=opt.batch_size,
+            shuffle=True,
+            num_workers=opt.n_cpu,
+        )
     psnr_dataloader = DataLoader(
-        ImageDataset_XYZ("./dataset/%s" % opt.dataset_name,  mode="test"),
-        batch_size=1,
-        shuffle=False,
-        num_workers=1,
-    )
+            ImageDataset_Hotstar(opt.im_val, opt.gt_val,  mode="test", loss_weight=opt.loss_weight),
+            batch_size=1,
+            shuffle=False,
+            num_workers=1,
+        )
+else:
+    if opt.input_color_space == 'sRGB':
+        dataloader = DataLoader(
+            ImageDataset_sRGB("./dataset/%s" % opt.dataset_name, mode = "train"),
+            batch_size=opt.batch_size,
+            shuffle=True,
+            num_workers=opt.n_cpu,
+        )
+
+        psnr_dataloader = DataLoader(
+            ImageDataset_sRGB("./dataset/%s" % opt.dataset_name,  mode="test"),
+            batch_size=1,
+            shuffle=False,
+            num_workers=1,
+        )
+    elif opt.input_color_space == 'XYZ':
+        dataloader = DataLoader(
+            ImageDataset_XYZ("./dataset/%s" % opt.dataset_name, mode = "train"),
+            batch_size=opt.batch_size,
+            shuffle=True,
+            num_workers=opt.n_cpu,
+        )
+
+        psnr_dataloader = DataLoader(
+            ImageDataset_XYZ("./dataset/%s" % opt.dataset_name,  mode="test"),
+            batch_size=1,
+            shuffle=False,
+            num_workers=1,
+        )
 
 def generator_train(img):
 
@@ -210,7 +231,11 @@ for epoch in range(opt.epoch, opt.n_epochs):
         fake_B, weights_norm = generator_train(real_A)
 
         # Pixel-wise loss
-        mse = criterion_pixelwise(fake_B, real_B)
+        if not opt.loss_weight:
+            mse = criterion_pixelwise(fake_B, real_B)
+        else:
+            mask = Variable(batch["mask"].type(Tensor))
+            mse = criterion_pixelwise(fake_B * mask, real_B * mask)
 
         tv0, mn0 = TV3(LUT0)
         tv1, mn1 = TV3(LUT1)
@@ -243,8 +268,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
 
         # Print log
         sys.stdout.write(
-            "\r[Epoch %d/%d] [Batch %d/%d] [psnr: %f, tv: %f, wnorm: %f, mn: %f] ETA: %s"
-            % (epoch,opt.n_epochs,i,len(dataloader),psnr_avg / (i+1),tv_cons, weights_norm, mn_cons, time_left,
+            "\r[Epoch %d/%d] [Batch %d/%d] [psnr: %f, mse: %f, tv: %f, wnorm: %f, mn: %f]"
+            % (epoch,opt.n_epochs,i,len(dataloader),psnr_avg / (i+1), mse_avg / (i+1), tv_cons, weights_norm, mn_cons,
             )
         )
 
