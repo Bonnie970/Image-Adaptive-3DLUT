@@ -11,11 +11,19 @@ Skin color correction dataset s3 bucket
 
 ## Usage
 ### Requirements
-Python3, requirements.txt
+```bash 
+conda create -y -n 3dlut_g5 python=3.8
+conda activate 3dlut_g5 
+pip install numpy==1.19.2 Pillow==6.1.0 opencv-python==3.4.8.29 scipy tqdm matplotlib 
+# pip install torch==1.10.1+cu111 torchvision==0.11.2+cu111 torchaudio==0.10.1 -f https://download.pytorch.org/whl/cu111/torch_stable.html
+# torch 1.12 is required for onnx min() and max() conversion 
+pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 -f https://download.pytorch.org/whl/cu111/torch_stable.html
+```
 
 ### Training
 #### Download dataset from S3 
 ```bash
+# size ~3GB
 aws s3 sync s3://hotstar-ads-ml-us-east-1-prod/content-intelligence/dehaze_dataset ./dataset
 ```
 #### Train 
