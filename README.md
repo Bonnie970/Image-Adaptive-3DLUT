@@ -72,6 +72,17 @@ im=demo_images/ENvsAF_clip1_540p_results_dehaze_composition_00000035.png
 python demo_eval.py --image_name $im --model_dir $model_dir --output_dir ./ --result_name_suffix "_${out}_ep${ep}"
 ```
 
+### Prepare for ONNX conversion 
+- Compute average CNN weights to combine the 3 LUTs 
+- Copy pred weights to dehaze_e2e.py to generate onnx and trt models 
+```bash
+data_dir=./dataset
+python demo_eval.py --image_name ${data_dir}/train_im.txt --model_dir $model_dir --output_dir ${model_dir}/train_ep49 --result_name_suffix "_ep${ep}"
+
+import numpy as np
+preds = np.load('dataset_train_im.txt.npy')
+preds.mean(axis=0)
+```
 
 ### Tools
 1. You can generate identity 3DLUT with arbitrary dimension by using `utils/generate_identity_3DLUT.py` as follows:
