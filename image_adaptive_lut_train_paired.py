@@ -246,6 +246,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
         mn_cons = mn0 + mn1 + mn2 #+ mn3 + mn4
 
         loss = mse + opt.lambda_smooth * (weights_norm + tv_cons) + opt.lambda_monotonicity * mn_cons
+        # loss = mse + opt.lambda_smooth * tv_cons + opt.lambda_monotonicity * mn_cons
+        # loss = mse + opt.lambda_smooth * tv_cons + opt.lambda_monotonicity * mn_cons + 0.0001 * weights_norm
 
         psnr_avg += 10 * math.log10(1 / mse.item())
 
