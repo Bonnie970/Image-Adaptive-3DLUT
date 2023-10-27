@@ -84,6 +84,12 @@ preds = np.load('dataset_train_im.txt.npy')
 preds.mean(axis=0)
 ```
 
+### Model conversion and deployment 
+- Move to repo https://github.com/hotstar/dehaze.git 
+- Copy the averaged weights to `dehaze_e2e.py`: https://github.com/hotstar/dehaze/blob/8e9e88064d59e796ecd00934d95de6f8ee12ab49/dehaze_e2e.py#L97
+- Copy the `LUTs.pth` to `pretrained_models`
+  
+
 ### Tools
 1. You can generate identity 3DLUT with arbitrary dimension by using `utils/generate_identity_3DLUT.py` as follows:
 
